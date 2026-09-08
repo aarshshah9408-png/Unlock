@@ -194,7 +194,7 @@
             opacity: 0.5;
         }
 
-        /* Home Screen View - Shifted down below native status bar */
+        /* Home Screen View */
         #homescreen {
             position: absolute;
             top: 0;
@@ -211,10 +211,10 @@
         }
 
         #homescreen img {
-            width: 100%;
-            height: calc(100% - env(safe-area-inset-top, 44px));
-            margin-top: env(safe-area-inset-top, 44px);
-            object-fit: fill;
+            width: 100vw;
+            height: 100dvh;
+            object-fit: cover;
+            object-position: top center;
             display: block;
         }
 
