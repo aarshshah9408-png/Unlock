@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA / iOS App Meta Tags -->
+    <title>Expenses</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Expenses">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Expenses%22%2C%22short_name%22%3A%22Expenses%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23000000%22%2C%22theme_color%22%3A%22%23000000%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #app {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Lock Screen View */
+        #lockscreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 50px 20px 40px 20px;
+            color: white;
+            z-index: 10;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .lock-top {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .lock-time {
+            font-size: 80px;
+            font-weight: 300;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+
+        .lock-date {
+            font-size: 20px;
+            font-weight: 500;
+            margin-top: 5px;
+        }
+
+        .passcode-prompt {
+            font-size: 15px;
+            font-weight: 400;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .dots-container {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .dot {
+            width: 13px;
+            height: 13px;
+            border: 1px solid white;
+            border-radius: 50%;
+            background: transparent;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .dot.filled {
+            background: white;
+            border-color: white;
+        }
+
+        /* Shake Animation */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Keypad */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 75px);
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .key {
+            width: 75px;
+            height: 75px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .key:active {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .key-num {
+            font-size: 32px;
+            font-weight: 300;
+            line-height: 1;
+        }
+
+        .key-sub {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            margin-top: 2px;
+        }
+
+        .key.empty {
+            background: transparent;
+            backdrop-filter: none;
+            cursor: default;
+        }
+        .key.empty:active {
+            background: transparent;
+        }
+
+        .lock-bottom-actions {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* Home Screen View */
+        #homescreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 5;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: scale(1.1);
+        }
+
+        #homescreen.active {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Secret Peek Overlay */
+        #peek-display {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 12px;
+            border-radius: 12px;
+            color: #0ff;
+            font-family: monospace;
+            font-size: 14px;
+            z-index: 100;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+        #peek-display div {
+            margin-bottom: 4px;
+        }
+
+        /* Quadrant Touch Triggers */
+        .quadrant {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            z-index: 50;
+            display: none;
+        }
+        #quad-top-left { top: 0; left: 0; }
+        #quad-bottom-left { bottom: 0; left: 0; }
+
+        /* Settings Modal */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            padding: 40px 20px;
+            color: white;
+            overflow-y: auto;
+        }
+        #settings-modal h2 { margin-bottom: 20px; text-align: center; }
+        .setting-group { margin-bottom: 20px; }
+        .setting-group label { display: block; margin-bottom: 8px; font-size: 14px; color: #aaa; }
+        .setting-group select, .setting-group input { width: 100%; padding: 10px; border-radius: 8px; background: #222; border: 1px solid #444; color: white; }
+        .close-settings {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <!-- Lock Screen -->
+        <div id="lockscreen">
+            <div class="lock-top">
+                <div class="lock-time" id="clock">9:41</div>
+                <div class="lock-date" id="date">Tuesday, September 8</div>
+            </div>
+
+            <div class="lock-middle">
+                <div class="passcode-prompt" id="passcode-prompt">Enter Passcode</div>
+                <div class="dots-container" id="dots-container"></div>
+
+                <div class="keypad" id="keypad"></div>
+            </div>
+
+            <div class="lock-bottom-actions">
+                <button class="action-btn" id="emergency-btn">Emergency</button>
+                <button class="action-btn" id="cancel-btn">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Home Screen Simulation -->
+        <div id="homescreen"></div>
+
+        <!-- Hidden Quadrants for Magician Controls -->
+        <div id="quad-top-left" class="quadrant"></div>
+        <div id="quad-bottom-left" class="quadrant"></div>
+
+        <!-- Secret Peek Container -->
+        <div id="peek-display"></div>
+
+        <!-- Settings Screen -->
+        <div id="settings-modal">
+            <h2>Mentalism Settings</h2>
+            <div class="setting-group">
+                <label>Unlock Attempt Target (1 - 5):</label>
+                <select id="setting-target-attempt">
+                    <option value="1">1st Attempt</option>
+                    <option value="2">2nd Attempt</option>
+                    <option value="3">3rd Attempt</option>
+                    <option value="4" selected>4th Attempt</option>
+                    <option value="5">5th Attempt</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label>Lock Screen Wallpaper Image:</label>
+                <input type="file" id="file-lock-bg" accept="image/*">
+            </div>
+            <div class="setting-group">
+                <label>Home Screen Screenshot 1:</label>
+                <input type="file" id="file-home-1" accept="image/*">
+            </div>
+            <div class="setting-group">
+                <label>Home Screen Screenshot 2:</label>
+                <input type="file" id="file-home-2" accept="image/*">
+            </div>
+            <button class="close-settings" id="save-settings">Save & Close</button>
+        </div>
+    </div>
+
+    <script>
+        let config = {
+            targetAttempt: parseInt(localStorage.getItem('targetAttempt')) || 4,
+            lockBg: localStorage.getItem('lockBg') || '',
+            homeBg1: localStorage.getItem('homeBg1') || '',
+            homeBg2: localStorage.getItem('homeBg2') || '',
+            passcodeLength: 4
+        };
+
+        let currentInput = "";
+        let attemptCount = 0;
+        let enteredCodes = [];
+        let currentHomeScreenImage = 1;
+        let isUnlocked = false;
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clock').innerText = `${hours}:${minutes}`;
+            
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            document.getElementById('date').innerText = now.toLocaleDateString('en-US', options);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function renderInterface() {
+            const dotsContainer = document.getElementById('dots-container');
+            dotsContainer.innerHTML = '';
+            for (let i = 0; i < config.passcodeLength; i++) {
+                const dot = document.createElement('div');
+                dot.className = `dot ${i < currentInput.length ? 'filled' : ''}`;
+                dotsContainer.appendChild(dot);
+            }
+
+            const keypad = document.getElementById('keypad');
+            keypad.innerHTML = '';
+            const layout = [
+                {num: '1', sub: ''}, {num: '2', sub: 'ABC'}, {num: '3', sub: 'DEF'},
+                {num: '4', sub: 'GHI'}, {num: '5', sub: 'JKL'}, {num: '6', sub: 'MNO'},
+                {num: '7', sub: 'PQRS'}, {num: '8', sub: 'TUV'}, {num: '9', sub: 'WXYZ'},
+                {num: '', sub: ''}, {num: '0', sub: ''}, {num: 'del', sub: ''}
+            ];
+
+            layout.forEach(item => {
+                const key = document.createElement('div');
+                if (item.num === '') {
+                    key.className = 'key empty';
+                } else {
+                    key.className = 'key';
+                    key.innerHTML = item.num === 'del' 
+                        ? `<span class="key-num" style="font-size:16px;">Delete</span>` 
+                        : `<span class="key-num">${item.num}</span><span class="key-sub">${item.sub}</span>`;
+                    key.addEventListener('click', () => handleKeyPress(item.num));
+                }
+                keypad.appendChild(key);
+            });
+        }
+
+        function handleKeyPress(val) {
+            if (isUnlocked) return;
+
+            if (val === 'del') {
+                currentInput = currentInput.slice(0, -1);
+                renderInterface();
+                return;
+            }
+
+            if (currentInput.length < config.passcodeLength) {
+                currentInput += val;
+                renderInterface();
+
+                if (currentInput.length === config.passcodeLength) {
+                    processAttempt();
+                }
+            }
+        }
+
+        function triggerVibration() {
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        function processAttempt() {
+            attemptCount++;
+            let shouldUnlock = false;
+
+            if (attemptCount === config.targetAttempt) {
+                if (!enteredCodes.includes(currentInput)) {
+                    shouldUnlock = true;
+                } else {
+                    shouldUnlock = false;
+                }
+            }
+
+            if (shouldUnlock) {
+                unlockPhone();
+            } else {
+                enteredCodes.push(currentInput);
+                triggerVibration();
+                const lockscreen = document.getElementById('lockscreen');
+                lockscreen.classList.add('shake');
+                
+                setTimeout(() => {
+                    lockscreen.classList.remove('shake');
+                    currentInput = "";
+                    renderInterface();
+                }, 400);
+            }
+        }
+
+        function unlockPhone() {
+            isUnlocked = true;
+            const lockscreen = document.getElementById('lockscreen');
+            const homescreen = document.getElementById('homescreen');
+
+            lockscreen.style.opacity = '0';
+            setTimeout(() => {
+                lockscreen.style.display = 'none';
+                homescreen.classList.add('active');
+                document.getElementById('quad-top-left').style.display = 'block';
+                document.getElementById('quad-bottom-left').style.display = 'block';
+            }, 400);
+        }
+
+        function lockPhoneAgain() {
+            isUnlocked = false;
+            currentInput = "";
+            const lockscreen = document.getElementById('lockscreen');
+            const homescreen = document.getElementById('homescreen');
+
+            homescreen.classList.remove('active');
+            lockscreen.style.display = 'flex';
+            setTimeout(() => {
+                lockscreen.style.opacity = '1';
+                renderInterface();
+            }, 50);
+
+            document.getElementById('quad-top-left').style.display = 'none';
+            document.getElementById('quad-bottom-left').style.display = 'none';
+            document.getElementById('peek-display').style.display = 'none';
+        }
+
+        function applyStyles() {
+            const lockscreen = document.getElementById('lockscreen');
+            const homescreen = document.getElementById('homescreen');
+
+            if (config.lockBg) lockscreen.style.backgroundImage = `url(${config.lockBg})`;
+            if (config.homeBg1) homescreen.style.backgroundImage = `url(${config.homeBg1})`;
+        }
+
+        let emergencyClickCount = 0;
+        let emergencyTimer = null;
+        document.getElementById('emergency-btn').addEventListener('click', () => {
+            emergencyClickCount++;
+            if (emergencyClickCount === 1) {
+                emergencyTimer = setTimeout(() => { emergencyClickCount = 0; }, 400);
+            } else if (emergencyClickCount === 2) {
+                clearTimeout(emergencyTimer);
+                emergencyClickCount = 0;
+                config.passcodeLength = config.passcodeLength === 4 ? 6 : 4;
+                currentInput = "";
+                renderInterface();
+                alert(`Passcode switched to ${config.passcodeLength} digits mode.`);
+            }
+        });
+
+        let cancelTimer = null;
+        const cancelBtn = document.getElementById('cancel-btn');
+        
+        cancelBtn.addEventListener('mousedown', startCancelLongPress);
+        cancelBtn.addEventListener('touchstart', startCancelLongPress);
+        cancelBtn.addEventListener('mouseup', cancelLongPress);
+        cancelBtn.addEventListener('touchend', cancelLongPress);
+
+        function startCancelLongPress(e) {
+            e.preventDefault();
+            cancelTimer = setTimeout(() => { openSettings(); }, 3000);
+        }
+
+        function cancelLongPress() {
+            clearTimeout(cancelTimer);
+        }
+
+        document.getElementById('quad-bottom-left').addEventListener('click', () => {
+            const peekDiv = document.getElementById('peek-display');
+            if (peekDiv.style.display === 'block') {
+                peekDiv.style.display = 'none';
+                return;
+            }
+            
+            peekDiv.innerHTML = '<strong>Prior Attempts:</strong><br>';
+            if (enteredCodes.length === 0) {
+                peekDiv.innerHTML += '<div>No attempts logged yet</div>';
+            } else {
+                enteredCodes.slice(0, 3).forEach((code, index) => {
+                    peekDiv.innerHTML += `<div>Row ${index + 1}: ${code}</div>`;
+                });
+            }
+            peekDiv.style.display = 'block';
+        });
+
+        document.getElementById('quad-top-left').addEventListener('click', () => {
+            lockPhoneAgain();
+        });
+
+        let touchStartX = 0;
+        document.getElementById('homescreen').addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+        document.getElementById('homescreen').addEventListener('touchend', (e) => {
+            let touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 50) {
+                if (config.homeBg2) {
+                    document.getElementById('homescreen').style.backgroundImage = `url(${config.homeBg2})`;
+                    currentHomeScreenImage = 2;
+                }
+            } else if (touchEndX - touchStartX > 50) {
+                if (config.homeBg1) {
+                    document.getElementById('homescreen').style.backgroundImage = `url(${config.homeBg1})`;
+                    currentHomeScreenImage = 1;
+                }
+            }
+        });
+
+        function openSettings() {
+            document.getElementById('setting-target-attempt').value = config.targetAttempt;
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        document.getElementById('save-settings').addEventListener('click', () => {
+            config.targetAttempt = parseInt(document.getElementById('setting-target-attempt').value);
+            localStorage.setItem('targetAttempt', config.targetAttempt);
+
+            const lockFile = document.getElementById('file-lock-bg').files[0];
+            const home1File = document.getElementById('file-home-1').files[0];
+            const home2File = document.getElementById('file-home-2').files[0];
+
+            let pendingReads = 0;
+
+            function checkDone() {
+                pendingReads--;
+                if (pendingReads <= 0) {
+                    applyStyles();
+                    document.getElementById('settings-modal').style.display = 'none';
+                }
+            }
+
+            if (lockFile) {
+                pendingReads++;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    config.lockBg = e.target.result;
+                    localStorage.setItem('lockBg', config.lockBg);
+                    checkDone();
+                };
+                reader.readAsDataURL(lockFile);
+            }
+
+            if (home1File) {
+                pendingReads++;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    config.homeBg1 = e.target.result;
+                    localStorage.setItem('homeBg1', config.homeBg1);
+                    checkDone();
+                };
+                reader.readAsDataURL(home1File);
+            }
+
+            if (home2File) {
+                pendingReads++;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    config.homeBg2 = e.target.result;
+                    localStorage.setItem('homeBg2', config.homeBg2);
+                    checkDone();
+                };
+                reader.readAsDataURL(home2File);
+            }
+
+            if (pendingReads === 0) {
+                applyStyles();
+                document.getElementById('settings-modal').style.display = 'none';
+            }
+        });
+
+        applyStyles();
+        renderInterface();
+    </script>
+</body>
+</html>
