@@ -194,7 +194,7 @@
             opacity: 0.5;
         }
 
-        /* Home Screen View - Absolute Edge-to-Edge Image Fix */
+        /* Home Screen View - Shifted down below native status bar */
         #homescreen {
             position: absolute;
             top: 0;
@@ -212,8 +212,9 @@
 
         #homescreen img {
             width: 100%;
-            height: 100%;
-            object-fit: fill; /* Forces true edge-to-edge stretching without letterboxing */
+            height: calc(100% - env(safe-area-inset-top, 44px));
+            margin-top: env(safe-area-inset-top, 44px);
+            object-fit: fill;
             display: block;
         }
 
@@ -309,7 +310,7 @@
             </div>
         </div>
 
-        <!-- Home Screen Simulation using responsive <img> element -->
+        <!-- Home Screen Simulation -->
         <div id="homescreen">
             <img id="homescreen-img" src="" alt="Home Screen">
         </div>
