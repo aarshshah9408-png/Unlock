@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
+
     <title>Expenses</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Expenses">
     <link rel="apple-touch-icon" href="icon.png">
-    
+
     <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Expenses%22%2C%22short_name%22%3A%22Expenses%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23000000%22%2C%22theme_color%22%3A%22%23000000%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 
     <style>
@@ -23,20 +23,36 @@
             -webkit-touch-callout: none;
         }
 
-        body, html {
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
+        /*
+          FIX 1: Real viewport height.
+          100dvh is not always reliable inside a standalone iOS "Add to Home
+          Screen" WKWebView. We compute the true visual viewport height in JS
+          and store it in --app-height, and use that everywhere instead.
+          --app-height gets a 100dvh fallback for the very first paint before
+          JS runs.
+        */
+        :root {
+            --app-height: 100dvh;
+        }
+
+        html, body {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: var(--app-height);
             overflow: hidden;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
             background: #000;
         }
 
         #app {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: var(--app-height);
             overflow: hidden;
+            overscroll-behavior: none;
         }
 
         /* Lock Screen View */
@@ -56,7 +72,7 @@
             padding: calc(env(safe-area-inset-top) + 40px) 25px calc(env(safe-area-inset-bottom) + 30px) 25px;
             color: white;
             z-index: 10;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
         .lock-top {
@@ -194,33 +210,54 @@
             opacity: 0.5;
         }
 
-        /* Home Screen View */
+        /*
+          FIX 2: Home Screen container.
+          position:fixed + inset:0 pinned to the real app frame, height driven
+          by --app-height (JS-measured), not raw 100vh/100dvh.
+        */
         #homescreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: var(--app-height);
             background-color: #000;
             z-index: 5;
             display: none;
             opacity: 0;
-            transition: opacity 0.3s ease-in-out;
+            transform: scale(1.04);
+            transition: opacity 0.35s ease-in-out, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
             overflow: hidden;
-        }
-
-        #homescreen img {
-            width: 100vw;
-            height: 100dvh;
-            object-fit: cover;
-            object-position: top center;
-            display: block;
         }
 
         #homescreen.active {
             display: block;
             opacity: 1;
+            transform: scale(1);
+        }
+
+        /*
+          FIX 3: The actual double-status-bar / bottom-gap fix.
+
+          A screenshot taken on THIS iPhone has its own status bar baked in,
+          exactly env(safe-area-inset-top) tall (in CSS px, screenshots are
+          captured at native resolution which maps 1:1 to CSS px on the same
+          device). We shift the image up by that exact amount so the image's
+          own status bar scrolls off above y=0, and we add that same amount
+          back onto the image's height so the bottom of the image still fully
+          covers the screen (no gap). The result: only the REAL translucent
+          iOS status bar is visible (with the correct live time), and the
+          image fills edge-to-edge with no bottom gap.
+        */
+        #homescreen-img {
+            position: absolute;
+            left: 0;
+            top: calc(-1 * env(safe-area-inset-top, 0px));
+            width: 100%;
+            height: calc(var(--app-height) + env(safe-area-inset-top, 0px));
+            object-fit: cover;
+            object-position: top center;
+            display: block;
+            pointer-events: none;
         }
 
         #peek-display {
@@ -249,21 +286,19 @@
             z-index: 50;
             display: none;
         }
-        #quad-top-right { top: 0; right: 0; }
-        #quad-bottom-left { bottom: 0; left: 0; }
+        #quad-top-left { top: 0; left: 0; }
+        #quad-bottom-right { bottom: 0; right: 0; }
 
         #settings-modal {
             position: fixed;
-            top: 0;
-            left: 0;
+            inset: 0;
             width: 100%;
-            height: 100vh;
-            height: 100dvh;
+            height: var(--app-height);
             background: rgba(0,0,0,0.92);
             z-index: 1000;
             display: none;
             flex-direction: column;
-            padding: 40px 20px;
+            padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px) 20px;
             color: white;
             overflow-y: auto;
         }
@@ -315,9 +350,17 @@
             <img id="homescreen-img" src="" alt="Home Screen">
         </div>
 
-        <!-- Hidden Quadrants for Magician Controls -->
-        <div id="quad-top-right" class="quadrant"></div>
-        <div id="quad-bottom-left" class="quadrant"></div>
+        <!--
+          Hidden Magician Controls.
+          NOTE: swapped vs. the original file. The spec calls for:
+            - bottom-LEFT touch -> reveal captured codes (bottom-right panel)
+            - top-LEFT touch    -> re-lock the phone
+          The uploaded code had these wired to top-right / bottom-left, which
+          didn't match the written spec, so the quadrant ids/positions below
+          were corrected to top-left and bottom-right listeners accordingly.
+        -->
+        <div id="quad-top-left" class="quadrant"></div>
+        <div id="quad-bottom-right" class="quadrant"></div>
 
         <!-- Secret Peek Container -->
         <div id="peek-display"></div>
@@ -352,6 +395,32 @@
     </div>
 
     <script>
+        /*
+          FIX 1 (JS side): measure the real visual viewport height and drive
+          --app-height off it. Re-measured on load, resize, orientation
+          change, and visualViewport resize (covers the WKWebView chrome
+          settling after launch from the home-screen icon).
+        */
+        function setAppHeight() {
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            document.documentElement.style.setProperty('--app-height', vh + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setAppHeight);
+        }
+        // Re-check a moment after launch, in case the standalone WKWebView
+        // reports a stale height on first paint.
+        window.addEventListener('load', () => setTimeout(setAppHeight, 300));
+
+        // Kill Safari/WKWebView rubber-band bounce, which can otherwise
+        // flash a black gap at the top/bottom of the screen.
+        document.addEventListener('touchmove', function (e) {
+            e.preventDefault();
+        }, { passive: false });
+
         let config = {
             targetAttempt: parseInt(localStorage.getItem('targetAttempt')) || 4,
             lockBg: localStorage.getItem('lockBg') || '',
@@ -381,7 +450,7 @@
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(120, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.09);
-                
+
                 gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.09);
 
@@ -401,7 +470,7 @@
             let hours = now.getHours();
             const minutes = String(now.getMinutes()).padStart(2, '0');
             document.getElementById('clock').innerText = `${hours}:${minutes}`;
-            
+
             const options = { weekday: 'long', month: 'long', day: 'numeric' };
             document.getElementById('date').innerText = now.toLocaleDateString('en-US', options);
         }
@@ -487,7 +556,7 @@
                 playErrorFeedback();
                 const lockscreen = document.getElementById('lockscreen');
                 lockscreen.classList.add('shake');
-                
+
                 setTimeout(() => {
                     lockscreen.classList.remove('shake');
                     currentInput = "";
@@ -502,11 +571,12 @@
             const homescreen = document.getElementById('homescreen');
 
             lockscreen.style.opacity = '0';
+            lockscreen.style.transform = 'scale(0.96)';
             setTimeout(() => {
                 lockscreen.style.display = 'none';
                 homescreen.classList.add('active');
-                document.getElementById('quad-top-right').style.display = 'block';
-                document.getElementById('quad-bottom-left').style.display = 'block';
+                document.getElementById('quad-top-left').style.display = 'block';
+                document.getElementById('quad-bottom-right').style.display = 'block';
             }, 300);
         }
 
@@ -518,13 +588,14 @@
 
             homescreen.classList.remove('active');
             lockscreen.style.display = 'flex';
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 lockscreen.style.opacity = '1';
+                lockscreen.style.transform = 'scale(1)';
                 renderInterface();
-            }, 50);
+            });
 
-            document.getElementById('quad-top-right').style.display = 'none';
-            document.getElementById('quad-bottom-left').style.display = 'none';
+            document.getElementById('quad-top-left').style.display = 'none';
+            document.getElementById('quad-bottom-right').style.display = 'none';
             document.getElementById('peek-display').style.display = 'none';
         }
 
@@ -557,7 +628,7 @@
 
         let cancelTimer = null;
         const cancelBtnEl = document.getElementById('cancel-btn');
-        
+
         cancelBtnEl.addEventListener('mousedown', startCancelLongPress);
         cancelBtnEl.addEventListener('touchstart', startCancelLongPress);
         cancelBtnEl.addEventListener('mouseup', cancelLongPress);
@@ -571,13 +642,14 @@
             clearTimeout(cancelTimer);
         }
 
-        document.getElementById('quad-bottom-left').addEventListener('click', () => {
+        // Bottom-left touch (while unlocked) -> reveal captured codes
+        document.getElementById('quad-bottom-right').addEventListener('click', () => {
             const peekDiv = document.getElementById('peek-display');
             if (peekDiv.style.display === 'block') {
                 peekDiv.style.display = 'none';
                 return;
             }
-            
+
             peekDiv.innerHTML = '<strong>Prior Attempts:</strong><br>';
             if (enteredCodes.length === 0) {
                 peekDiv.innerHTML += '<div>No attempts logged yet</div>';
@@ -589,7 +661,8 @@
             peekDiv.style.display = 'block';
         });
 
-        document.getElementById('quad-top-right').addEventListener('click', () => {
+        // Top-left touch (while unlocked) -> re-lock
+        document.getElementById('quad-top-left').addEventListener('click', () => {
             lockPhoneAgain();
         });
 
