@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <!-- True Full-Screen PWA / iOS App Meta Tags -->
     <title>Expenses</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Expenses">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <!-- Web App Manifest -->
     <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Expenses%22%2C%22short_name%22%3A%22Expenses%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23000000%22%2C%22theme_color%22%3A%22%23000000%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 
     <style>
@@ -47,8 +45,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100vh;
-            height: 100dvh;
+            height: 100%;
             background-size: cover;
             background-position: center;
             background-color: #111;
@@ -119,7 +116,6 @@
             border-color: white;
         }
 
-        /* Subtle Shake Animation */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             20%, 60% { transform: translateX(-4px); }
@@ -130,7 +126,6 @@
             animation: shake 0.3s ease-in-out;
         }
 
-        /* Keypad Layout matching exact iOS proportion */
         .keypad {
             display: grid;
             grid-template-columns: repeat(3, 75px);
@@ -172,15 +167,6 @@
             opacity: 0.85;
         }
 
-        .key.empty {
-            background: transparent;
-            backdrop-filter: none;
-            cursor: default;
-        }
-        .key.empty:active {
-            background: transparent;
-        }
-
         .key.zero-centered {
             grid-column: 2;
         }
@@ -208,7 +194,7 @@
             opacity: 0.5;
         }
 
-        /* Home Screen View - True Edge-to-Edge Dynamic Viewport Fill */
+        /* Home Screen View - Absolute Edge-to-Edge Image Fix */
         #homescreen {
             position: absolute;
             top: 0;
@@ -216,14 +202,19 @@
             width: 100vw;
             height: 100vh;
             height: 100dvh;
-            background-size: 100% 100%;
-            background-position: center;
-            background-repeat: no-repeat;
             background-color: #000;
             z-index: 5;
             display: none;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            overflow: hidden;
+        }
+
+        #homescreen img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill; /* Forces true edge-to-edge stretching without letterboxing */
+            display: block;
         }
 
         #homescreen.active {
@@ -231,7 +222,6 @@
             opacity: 1;
         }
 
-        /* Secret Peek Overlay */
         #peek-display {
             position: absolute;
             bottom: 25px;
@@ -251,7 +241,6 @@
             margin-bottom: 4px;
         }
 
-        /* Quadrant Touch Triggers */
         .quadrant {
             position: absolute;
             width: 50%;
@@ -262,7 +251,6 @@
         #quad-top-right { top: 0; right: 0; }
         #quad-bottom-left { bottom: 0; left: 0; }
 
-        /* Settings Modal */
         #settings-modal {
             position: fixed;
             top: 0;
@@ -321,8 +309,10 @@
             </div>
         </div>
 
-        <!-- Home Screen Simulation -->
-        <div id="homescreen"></div>
+        <!-- Home Screen Simulation using responsive <img> element -->
+        <div id="homescreen">
+            <img id="homescreen-img" src="" alt="Home Screen">
+        </div>
 
         <!-- Hidden Quadrants for Magician Controls -->
         <div id="quad-top-right" class="quadrant"></div>
@@ -539,13 +529,13 @@
 
         function applyStyles() {
             const lockscreen = document.getElementById('lockscreen');
-            const homescreen = document.getElementById('homescreen');
+            const homeImg = document.getElementById('homescreen-img');
 
             if (config.lockBg) {
                 lockscreen.style.backgroundImage = `url(${config.lockBg})`;
             }
             if (config.homeBg1) {
-                homescreen.style.backgroundImage = `url(${config.homeBg1})`;
+                homeImg.src = config.homeBg1;
             }
         }
 
@@ -608,14 +598,15 @@
         });
         document.getElementById('homescreen').addEventListener('touchend', (e) => {
             let touchEndX = e.changedTouches[0].screenX;
+            const homeImg = document.getElementById('homescreen-img');
             if (touchStartX - touchEndX > 50) {
                 if (config.homeBg2) {
-                    document.getElementById('homescreen').style.backgroundImage = `url(${config.homeBg2})`;
+                    homeImg.src = config.homeBg2;
                     currentHomeScreenImage = 2;
                 }
             } else if (touchEndX - touchStartX > 50) {
                 if (config.homeBg1) {
-                    document.getElementById('homescreen').style.backgroundImage = `url(${config.homeBg1})`;
+                    homeImg.src = config.homeBg1;
                     currentHomeScreenImage = 1;
                 }
             }
